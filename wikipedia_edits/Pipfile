@@ -8,6 +8,7 @@ verify_ssl = true
 [packages]
 sseclient = "*"
 clickhouse-driver = "*"
+ip2location = "*"
 
 [requires]
 python_version = "3.8"

@@ -4,15 +4,17 @@
 
 from clickhouse_driver import Client
 from datetime import datetime
+import IP2Location
 import ipaddress
 import json
+import os
 import requests
 import signal
 import sseclient
 import sys
 import typing
 
-def get_geolocation(ip_address: str) -> dict:
+def get_geolocation_web(ip_address: str) -> dict:
     url = f"https://api.ipgeolocationapi.com/geolocate/{ip_address}"
     try:
         response_raw = requests.request("GET", url)
@@ -29,6 +31,23 @@ def get_geolocation(ip_address: str) -> dict:
     except:
         return {}
 
+IP2LOCATION_DB = IP2Location.IP2Location(os.path.join("data", "IP2LOCATION-LITE-DB5.BIN"))
+
+def get_geolocation_local(ip_address: str) -> dict:
+    try:
+        record_raw = IP2LOCATION_DB.get_all(ip_address)
+        result_record = {
+            "continent": None, # NA
+            "region":    record_raw.region,
+            "subregion": None, # NA
+            "country":   record_raw.country_short,
+            "lat":       float(record_raw.latitude),
+            "lon":       float(record_raw.longitude)
+        }
+        return result_record
+    except:
+        return {}
+
 def geolocation_enricher_generator(generator: typing.Iterable[dict]) -> typing.Iterable[dict]:
     for change_record in generator:
         try: # check if "user" is an IP address...
@@ -40,7 +59,7 @@ def geolocation_enricher_generator(generator: typing.Iterable[dict]) -> typing.I
         else:
             # IP address, anonymous user, find geolocation...
             change_record["anonymous"] = True
-            change_record.update(get_geolocation(change_record["user"]))
+            change_record.update(get_geolocation_local(change_record["user"]))
         yield change_record
 
 def wikipedia_change_message_generator() -> typing.Iterable[dict]:
